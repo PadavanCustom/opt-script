@@ -29,7 +29,7 @@ ss_mode_x=`nvram get ss_mode_x` #ss模式，0 为chnroute, 1 为 gfwlist, 2 为�
 [ -z $ss_mode_x ] && ss_mode_x=0 && nvram set ss_mode_x=$ss_mode_x
 if [ "$transocks_enable" != "0" ]  ; then
 	if [ "$ss_enable" != "0" ] && [ "$ss_mode_x" != 3 ]  ; then
-		logger -t "【v2ray】" "错误！！！由于已启用 transocks ，停止启用 SS 透明代理！"
+		logger -t "【clash】" "错误！！！由于已启用 transocks ，停止启用 SS 透明代理！"
 		ss_enable=0 && nvram set ss_enable=0
 	fi
 	if [ "$clash_enable" != 0 ] && [ "$clash_follow" != 0 ]  ; then
@@ -177,14 +177,17 @@ while [ "$clash_enable" = "1" ]; do
 			if [ "$port" = 0 ] ; then
 				logger -t "【clash】" "检测:找不到 dnsmasq 转发规则, 重新添加"
 				# 写入dnsmasq配置
-				sed -Ei '/no-resolv|server=|server=127.0.0.1#8053|dns-forward-max=1000|min-cache-ttl=1800/d' /etc/storage/dnsmasq/dnsmasq.conf
-				cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-EOF
-no-resolv
-server=127.0.0.1#$8053
-dns-forward-max=1000
-min-cache-ttl=1800
-EOF
-				restart_dhcpd
+
+# 				sed -Ei '/port=0|no-resolv|server=|dns-forward-max=|min-cache-ttl=|max-cache-ttl=/d' /etc/storage/dnsmasq/dnsmasq.conf
+# 				cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-EOF
+# port=0
+# no-resolv
+# server=127.0.0.1#$8053
+# dns-forward-max=1000
+# min-cache-ttl=1800
+# EOF
+# 				restart_dhcpd
+
 			fi
 		fi
 	fi
@@ -276,8 +279,6 @@ yq d -i $config_yml redir-port
 fi
 yq w -i $config_yml external-controller $clash_ui
 yq w -i $config_yml external-ui "/opt/app/clash/clash_webs/"
-logger -t "【clash】" "删除 Clash 配置文件中原有的 DNS 配置（没搞懂 Clash DNS 暂时使用外部 DNS 程序）"
-yq d -i $config_yml dns
 # 没搞懂 Clash DNS 暂时使用外部程序
 # if [ "$chinadns_enable" != "0" ] && [ "$chinadns_port" = "8053" ] ; then
 	# logger -t "【clash】" "已经启动 chinadns  防止域名污染"
@@ -311,6 +312,19 @@ if [ "$clash_follow" = "1" ] && [ "$clash_optput" = "1" ]; then
 	fi
 fi
 logger -t "【clash】" "运行 /opt/bin/clash"
+
+logger -t "【clash】" "检查 dnsmasq 配置是否停用了 dns 功能"
+logger -t "【clash】" " clash_follow: $clash_follow"
+logger -t "【clash】" " $(netstat -an | grep 53)"
+# port=$(grep "port="  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)
+# if [ "$port" = 0 ] ; then
+# 	logger -t "【clash】" "停用 dnsmasq dns 功能"
+# 	cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-\EOF
+# 	port=0 #clash1
+# 	EOF
+# 	restart_dhcpd
+# fi
+
 su_cmd2="/opt/bin/clash -d /opt/app/clash/config"
 eval "$su_cmd" '"cmd_name=clash && '"$su_cmd2"' $cmd_log"' &
 sleep 3
@@ -325,25 +339,24 @@ flush_r
 # 透明代理
 logger -t "【clash】" "启动 透明代理"
 logger -t "【clash】" "备注：默认配置的透明代理会导致广告过滤失效，需要手动改造配置前置代理过滤软件"
+
 if [ "$chinadns_enable" != "0" ] && [ "$chinadns_port" = "8053" ] ; then
 echo "已经启动 chinadns 防止域名污染"
 else
-logger -t "【v2ray】" "启动 dnsproxy 防止域名污染"
 pidof dnsproxy >/dev/null 2>&1 && killall dnsproxy && killall -9 dnsproxy 2>/dev/null
 pidof pdnsd >/dev/null 2>&1 && killall pdnsd && killall -9 pdnsd 2>/dev/null
-if [ -s /sbin/dnsproxy ] ; then
-	/sbin/dnsproxy -d
-else
-	dnsproxy -d
-fi
+logger -t "【clash】" "使用 clash 内置 DNS 防止域名污染"
+logger -t "【clash】" "禁用 dnsmasq 监听 53 端口，相当于停用 dnsmasq 作为默认 dns"
 #防火墙转发规则加载
-sed -Ei '/no-resolv|server=|server=127.0.0.1#8053|dns-forward-max=1000|min-cache-ttl=1800/d' /etc/storage/dnsmasq/dnsmasq.conf
-cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-\EOF
-no-resolv
-server=127.0.0.1#8053
-dns-forward-max=1000
-min-cache-ttl=1800
-EOF
+# sed -Ei '/port=0|no-resolv|server=|dns-forward-max=|min-cache-ttl=|max-cache-ttl=/d' /etc/storage/dnsmasq/dnsmasq.conf
+# cat >> "/etc/storage/dnsmasq/dnsmasq.conf" <<-\EOF
+# port=0 #clash
+# no-resolv
+# server=127.0.0.1#8053
+# dns-forward-max=1000
+# min-cache-ttl=1800
+# EOF
+
 fi
 
 restart_dhcpd
@@ -371,9 +384,8 @@ gen_prerouting_rules nat tcp $wifidognx
 # iptables -t nat -D OUTPUT -p tcp -j SS_SPEC_CLASH_LAN_DG
 
 
-
-iptables -t nat -I OUTPUT -p tcp -d 8.8.8.8,8.8.4.4 --dport 53 -j REDIRECT --to-ports 7892
-iptables -t nat -I OUTPUT -p tcp -d 208.67.222.222,208.67.220.220 --dport 443 -j REDIRECT --to-ports 7892
+# iptables -t nat -I OUTPUT -p tcp -d 8.8.8.8,8.8.4.4 --dport 53 -j REDIRECT --to-ports 7892
+# iptables -t nat -I OUTPUT -p tcp -d 208.67.222.222,208.67.220.220 --dport 443 -j REDIRECT --to-ports 7892
 
 # 同时将代理规则应用到 OUTPUT 链, 让路由自身流量走透明代理
 NUM=`iptables -m owner -h 2>&1 | grep owner | wc -l`
@@ -390,7 +402,7 @@ if [ "$NUM" -ge "3" ] && [ "$clash_optput" = 1 ] && [ "$su_x" = "1" ] ; then
 # get_wifidognx_mangle
 # gen_prerouting_rules mangle udp $wifidognx
 
-logger -t "【clash】" "同时将透明代理规则应用到 OUTPUT 链, 让路由自身流量走透明代理"
+	logger -t "【clash】" "同时将透明代理规则应用到 OUTPUT 链, 让路由自身流量走透明代理"
 	iptables -t nat -D OUTPUT -m owner ! --uid-owner 778 -p tcp -j SS_SPEC_CLASH_LAN_DG
 	iptables -t nat -A OUTPUT -m owner ! --uid-owner 778 -p tcp -j SS_SPEC_CLASH_LAN_DG
 fi
@@ -431,10 +443,13 @@ flush_r() {
 	iptables -t nat -D OUTPUT -p tcp -d 208.67.222.222,208.67.220.220 --dport 443 -j REDIRECT --to-ports 7892
 	iptables -t nat -D OUTPUT -p tcp -d 8.8.8.8,8.8.4.4 --dport 53 -j RETURN
 	iptables -t nat -D OUTPUT -p tcp -d 208.67.222.222,208.67.220.220 --dport 443 -j RETURN
-	if [ "$chinadns_enable" = "0" ] || [ "$chinadns_port" != "8053" ] ; then
-		sed -Ei '/no-resolv|server=|server=127.0.0.1#8053|dns-forward-max=1000|min-cache-ttl=1800/d' /etc/storage/dnsmasq/dnsmasq.conf
-	fi
-	restart_dhcpd
+
+	# if [ "$chinadns_enable" = "0" ] || [ "$chinadns_port" != "8053" ] ; then
+	# 	logger -t "【clash】" "删除 dnsmasq 转发相关配置"
+	# 	sed -Ei '/port=0|no-resolv|server=|dns-forward-max=|min-cache-ttl=|max-cache-ttl=/d' /etc/storage/dnsmasq/dnsmasq.conf
+	# fi
+	# restart_dhcpd
+
 	return 0
 }
 
