@@ -86,10 +86,10 @@ if [ "$AdGuardHome_enable" = "1" ] ; then
 		AdGuardHome_start
 	else
 		[ -z "$AdGuardHome_2_server" ] && [ -z "$(ps -w | grep "AdGuardHome" | grep -v grep )" ] && AdGuardHome_restart
-		if [ "$(grep "server=127.0.0.1#5353"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
+		if [ "$(grep "^port=9053"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
 			sleep 10 
-			if [ "$(grep "server=127.0.0.1#5353"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
-				logger -t "【AdGuardHome】" "检测:找不到 dnsmasq 转发规则 server=127.0.0.1#5353 , 自动尝试重新启动"
+			if [ "$(grep "^port=9053"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
+				logger -t "【AdGuardHome】" "检测:找不到 dnsmasq 端口规则 port=9053 , 自动尝试重新启动"
 				AdGuardHome_restart
 			fi
 		fi
@@ -107,10 +107,10 @@ OSC
 #return
 fi
 while true; do
-	if [ "$(grep "server=127.0.0.1#5353"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
+	if [ "$(grep "^port=9053"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
 		sleep 10
-		if [ "$(grep "server=127.0.0.1#5353"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
-			logger -t "【AdGuardHome】" "检测:找不到 dnsmasq 转发规则 server=127.0.0.1#5353 , 自动尝试重新启动"
+		if [ "$(grep "^port=9053"  /etc/storage/dnsmasq/dnsmasq.conf | wc -l)" = 0 ] ; then
+			logger -t "【AdGuardHome】" "检测:找不到 dnsmasq 端口规则 port=9053 , 自动尝试重新启动"
 			AdGuardHome_restart
 		fi
 	fi
@@ -200,12 +200,13 @@ if [ "$port" != 0 ] ; then
 	sed -Ei '/server=/d' /etc/storage/dnsmasq/dnsmasq.conf
 	echo '#server=127.0.0.1#8053' >> /etc/storage/dnsmasq/dnsmasq.conf
 fi
-logger -t "【AdGuardHome】" "添加 AdGuardHome 的 dnsmasq 转发规则 server=127.0.0.1#5353"
+logger -t "【AdGuardHome】" "添加 AdGuardHome 的 dnsmasq 规则 port=9053"
 sed -Ei '/AdGuardHome/d' /etc/storage/dnsmasq/dnsmasq.conf
-echo "$AdGuardHome_server #AdGuardHome" >> /etc/storage/dnsmasq/dnsmasq.conf
+echo "port=9053 #AdGuardHome" >> /etc/storage/dnsmasq/dnsmasq.conf
+# echo "$AdGuardHome_server #AdGuardHome" >> /etc/storage/dnsmasq/dnsmasq.conf
 echo "no-resolv #AdGuardHome" >> /etc/storage/dnsmasq/dnsmasq.conf
-sed -Ei 's/^dns-forward-max/#dns-forward-max/g' /etc/storage/dnsmasq/dnsmasq.conf
-echo "dns-forward-max=1000 #AdGuardHome" >> /etc/storage/dnsmasq/dnsmasq.conf
+# sed -Ei 's/^dns-forward-max/#dns-forward-max/g' /etc/storage/dnsmasq/dnsmasq.conf
+# echo "dns-forward-max=1000 #AdGuardHome" >> /etc/storage/dnsmasq/dnsmasq.conf
 restart_dhcpd
 exit 0
 }
