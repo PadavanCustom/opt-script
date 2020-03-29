@@ -183,7 +183,7 @@ done
 clash_close () {
 kill_ps "$scriptname keep"
 sed -Ei '/【clash】|^$/d' /tmp/script/_opt_script_check
-Sh99_ss_tproxy.sh off_stop "Sh10_clash.sh"
+# Sh99_ss_tproxy.sh off_stop "Sh10_clash.sh"
 # 保存web节点选择
 reload_yml "check" ; reload_yml "save"
 killall clash
@@ -280,9 +280,9 @@ sleep 7
 clash_get_status
 
 if [ "$clash_follow" = "1" ] ; then
-Sh99_ss_tproxy.sh auser_check "Sh10_clash.sh"
+# Sh99_ss_tproxy.sh auser_check "Sh10_clash.sh"
 ss_tproxy_set "Sh10_clash.sh"
-Sh99_ss_tproxy.sh on_start "Sh10_clash.sh"
+# Sh99_ss_tproxy.sh on_start "Sh10_clash.sh"
 # 同时将代理规则应用到 OUTPUT 链, 让路由自身流量走透明代理
 if [ "$clash_optput" = 1 ] ; then
 logger -t "【clash】" "同时将透明代理规则应用到 OUTPUT 链, 让路由自身流量走透明代理"
@@ -293,7 +293,7 @@ logger -t "【clash】" "已经启动 chinadns 防止域名污染"
 else
 logger -t "【clash】" "启动 clash DNS 防止域名污染【端口 ::1#8053】"
 fi
-restart_dhcpd
+# restart_dhcpd
 logger -t "【clash】" "启动后若发现一些网站打不开, 估计是 DNS 被污染了. 解决 DNS 被污染方法："
 logger -t "【clash】" "①电脑设置 DNS 自动获取路由 ip。检查 hosts 是否有错误规则。"
 logger -t "【clash】" "②电脑运行 cmd 输入【ipconfig /flushdns】, 清理浏览器缓存。"
@@ -308,15 +308,17 @@ exit 0
 
 ss_tproxy_set() {
 ss_tproxy_auser=`nvram get ss_tproxy_auser`
-if [ "$1" != "$ss_tproxy_auser" ] ; then
-	logger -t "【clash】" "脚本 [Sh99_ss_tproxy.sh] 当前使用者: $auser_b ，跳过 $auser_a 的运行命令"
-	logger -t "【clash】" "需要停用 $auser_b 后才能使用 $auser_a 运行 [Sh99_ss_tproxy.sh] 脚本"
-	return
-fi
 lan_ipaddr=`nvram get lan_ipaddr`
 ss_tproxy_mode_x=`nvram get app_110`
+if [ "$1" != "$ss_tproxy_auser" ] ; then
+	logger -t "【clash】" "脚本 [Sh99_ss_tproxy.sh] ss_tproxy_set {$1, $ss_tproxy_auser}, {$lan_ipaddr, $ss_tproxy_mode_x}"
+	logger -t "【clash】" "脚本 [Sh99_ss_tproxy.sh] 当前使用者: {$auser_b} ，跳过 {$auser_a} 的运行命令"
+	logger -t "【clash】" "需要停用 {$auser_b} 后才能使用 {$auser_a} 运行 [Sh99_ss_tproxy.sh] 脚本"
+	return
+fi
+
 [ -z $ss_tproxy_mode_x ] && ss_tproxy_mode_x=0 && nvram set app_110=0
-[ "$ss_tproxy_mode_x" = "0" ] && logger -t "【clash】" "【自动】设置 ss_tproxy 配置文件，配置导入中..."
+[ "$ss_tproxy_mode_x" = "0" ] && logger -t "【clash】" "?? 【自动】设置 ss_tproxy 配置文件，配置导入中..."
 [ "$ss_tproxy_mode_x" = "1" ] && logger -t "【clash】" "【手动】设置 ss_tproxy 配置文件，跳过配置导入" && return
  # /etc/storage/app_27.sh
  # sstp_set mode='gfwlist'
@@ -387,7 +389,7 @@ sstp_set file_chnroute_set='/opt/app/ss_tproxy/chnroute.set'
 sstp_set file_chnroute6_set='/opt/app/ss_tproxy/chnroute6.set'
 sstp_set file_dnsserver_pid='/opt/app/ss_tproxy/.dnsserver.pid'
 
-Sh99_ss_tproxy.sh initconfig
+# Sh99_ss_tproxy.sh initconfig
 
 # 写入服务器地址
 echo "" > /opt/app/ss_tproxy/conf/proxy_svraddr4.conf
@@ -409,7 +411,7 @@ rm -f /opt/app/ss_tproxy/wanlist.ext
 rm -f /opt/app/ss_tproxy/lanlist.ext
 ln -sf /etc/storage/shadowsocks_ss_spec_wan.sh /opt/app/ss_tproxy/wanlist.ext
 ln -sf /etc/storage/shadowsocks_ss_spec_lan.sh /opt/app/ss_tproxy/lanlist.ext
-logger -t "【clash】" "【自动】设置 ss_tproxy 配置文件，完成配置导入"
+logger -t "【clash】" "?? 【自动】设置 ss_tproxy 配置文件，完成配置导入"
 }
 
 sstp_set() {
@@ -723,13 +725,13 @@ sed -Ei '/^$/d' $config_dns_yml
 yq w -i $config_dns_yml dns.ipv6 true
 rm_temp
 if [ "$chinadns_enable" != "0" ] && [ "$chinadns_port" = "8053" ] || [ "$clash_follow" == 0 ] ; then
-logger -t "【clash】" "变更 clash dns 端口 listen 0.0.0.0:8054 自动开启第三方 DNS 程序"
-yq w -i $config_dns_yml dns.listen 0.0.0.0:8054
+logger -t "【clash】" "XX 变更 clash dns 端口 listen 0.0.0.0:8054 自动开启第三方 DNS 程序"
+# yq w -i $config_dns_yml dns.listen 0.0.0.0:8054
 rm_temp
 dns_start_dnsproxy='0' # 0:自动开启第三方 DNS 程序(dnsproxy) ;
 else
-logger -t "【clash】" "变更 clash dns 端口 listen 0.0.0.0:8053 跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序"
-yq w -i $config_dns_yml dns.listen 0.0.0.0:8053
+logger -t "【clash】" "XX 变更 clash dns 端口 listen 0.0.0.0:8053 跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序"
+# yq w -i $config_dns_yml dns.listen 0.0.0.0:8053
 rm_temp
 dns_start_dnsproxy='1' # 1:跳过自动开启第三方 DNS 程序但是继续把DNS绑定到 8053 端口的程序
 fi
@@ -813,9 +815,9 @@ reload_yml "save"
 update_yml
 reload_yml "reload"
 reload_yml "set"
-Sh99_ss_tproxy.sh auser_check "Sh10_clash.sh"
-ss_tproxy_set "Sh10_clash.sh"
-Sh99_ss_tproxy.sh x_resolve_svraddr "Sh10_clash.sh"
+# Sh99_ss_tproxy.sh auser_check "Sh10_clash.sh"
+# ss_tproxy_set "Sh10_clash.sh"
+# Sh99_ss_tproxy.sh x_resolve_svraddr "Sh10_clash.sh"
 }
 
 reload_yml () {
